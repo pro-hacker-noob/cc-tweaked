@@ -1,11 +1,13 @@
 -- launcher.lua
--- Runs a predefined Pastebin script in the background and allows launching local apps
+-- Runs a predefined GitHub script in the background and allows launching local apps
 -- Persistent: never exits, always shows app list
 
 local appsDir = "apps"
 
--- === SET THIS TO YOUR PASTEBIN ID ===
-local backgroundPastebin = "KSHUHQe6" -- <-- replace with your Pastebin ID
+-- === SET THIS TO YOUR GITHUB RAW URL ===
+local backgroundGithub = "https://github.com/pro-hacker-noob/cc-tweaked/raw/refs/heads/main/coords" 
+-- Example:
+-- local backgroundGithub = "https://raw.githubusercontent.com/eran1234/mc-code/main/background.lua"
 
 -- Ensure apps folder exists
 if not fs.exists(appsDir) then
@@ -32,7 +34,7 @@ end
 local function chooseApp(apps)
     term.setBackgroundColor(colors.black)
     term.clear()
-    term.setCursorPos(1,1)
+    term.setCursorPos(1, 1)
     print("Available apps:")
     for i, app in ipairs(apps) do
         print(("%d. %s"):format(i, app.display))
@@ -61,11 +63,11 @@ local function runAppBackground(app)
     end
 end
 
--- Run the Pastebin script in background
-local function runBackgroundPastebin()
-    if backgroundPastebin and #backgroundPastebin > 0 then
+-- Run the GitHub script in background
+local function runBackgroundGithub()
+    if backgroundGithub and #backgroundGithub > 0 then
         parallel.waitForAny(
-            function() shell.run("pastebin", "run", backgroundPastebin) end,
+            function() shell.run("wget", "run", backgroundGithub) end,
             function() while true do os.pullEvent("terminate") end end
         )
     end
@@ -74,14 +76,14 @@ end
 -- === PERSISTENT LAUNCHER LOOP ===
 while true do
     parallel.waitForAny(
-        runBackgroundPastebin,
+        runBackgroundGithub,
         function()
             while true do
                 local apps = listApps()
                 if #apps == 0 then
                     term.setBackgroundColor(colors.black)
                     term.clear()
-                    term.setCursorPos(1,1)
+                    term.setCursorPos(1, 1)
                     sleep(1) -- wait a bit before rechecking
                 else
                     local selected = chooseApp(apps)
