@@ -1,0 +1,96 @@
+-- launcher.lua
+-- Runs a predefined Pastebin script in the background and allows launching local apps
+-- Persistent: never exits, always shows app list
+
+local appsDir = "apps"
+
+-- === SET THIS TO YOUR PASTEBIN ID ===
+local backgroundPastebin = "KSHUHQe6" -- <-- replace with your Pastebin ID
+
+-- Ensure apps folder exists
+if not fs.exists(appsDir) then
+    fs.makeDir(appsDir)
+end
+
+-- List apps (all files in appsDir)
+local function listApps()
+    local files = fs.list(appsDir)
+    local apps = {}
+    for _, file in ipairs(files) do
+        if not fs.isDir(fs.combine(appsDir, file)) then
+            local displayName = file
+            if file:sub(-4) == ".lua" then
+                displayName = file:sub(1, -5)
+            end
+            table.insert(apps, {file = file, display = displayName})
+        end
+    end
+    return apps
+end
+
+-- Prompt user to choose an app
+local function chooseApp(apps)
+    term.setBackgroundColor(colors.black)
+    term.clear()
+    term.setCursorPos(1,1)
+    print("Available apps:")
+    for i, app in ipairs(apps) do
+        print(("%d. %s"):format(i, app.display))
+    end
+    print("\nEnter the number of the app to run (or 0 to exit):")
+
+    local choice = tonumber(read())
+    if choice == 0 then
+        return nil
+    elseif choice and apps[choice] then
+        return apps[choice]
+    else
+        return nil
+    end
+end
+
+-- Run a local app in background
+local function runAppBackground(app)
+    local path = fs.combine(appsDir, app.file)
+    if fs.exists(path) then
+        -- Run app in parallel so launcher stays interactive
+        parallel.waitForAny(
+            function() shell.run(path) end,
+            function() while true do os.pullEvent("terminate") end end
+        )
+    end
+end
+
+-- Run the Pastebin script in background
+local function runBackgroundPastebin()
+    if backgroundPastebin and #backgroundPastebin > 0 then
+        parallel.waitForAny(
+            function() shell.run("pastebin", "run", backgroundPastebin) end,
+            function() while true do os.pullEvent("terminate") end end
+        )
+    end
+end
+
+-- === PERSISTENT LAUNCHER LOOP ===
+while true do
+    parallel.waitForAny(
+        runBackgroundPastebin,
+        function()
+            while true do
+                local apps = listApps()
+                if #apps == 0 then
+                    term.setBackgroundColor(colors.black)
+                    term.clear()
+                    term.setCursorPos(1,1)
+                    sleep(1) -- wait a bit before rechecking
+                else
+                    local selected = chooseApp(apps)
+                    if selected then
+                        runAppBackground(selected)
+                    end
+                    -- Always return to app list after app exits
+                end
+            end
+        end
+    )
+end
