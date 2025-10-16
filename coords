@@ -1,0 +1,75 @@
+-- chat_coords_debug.lua
+-- Listens to Advanced Peripherals Chat Box and PMs coords on "$getcoords"
+-- Includes debug messages
+
+local ALLOWED_USER = "pro_hacker_noob"
+
+-- Find chat box
+local chatBox = peripheral.find("chat_box") or peripheral.find("chatBox")
+if not chatBox then
+    print("[DEBUG] No Chat Box peripheral found.")
+    return
+end
+print("[DEBUG] Chat Box found. Listening for $getcoords from '" .. ALLOWED_USER .. "'...")
+
+-- Helper: get coordinates
+local function getCoords()
+    print("[DEBUG] Attempting to get coordinates...")
+    if gps then
+        local ok, x, y, z = pcall(gps.locate, 2)
+        if ok and x then
+            print(("[DEBUG] GPS located coordinates: X=%d Y=%d Z=%d"):format(x, y, z))
+            return math.floor(x+0.5), math.floor(y+0.5), math.floor(z+0.5)
+        else
+            print("[DEBUG] GPS locate failed or timed out.")
+        end
+    end
+    if commands and type(commands.getBlockPosition) == "function" then
+        local ok, a, b, c = pcall(commands.getBlockPosition)
+        if ok and a then
+            print(("[DEBUG] Command API returned coordinates: X=%d Y=%d Z=%d"):format(a,b,c))
+            return a, b, c
+        else
+            print("[DEBUG] Command API failed to get coordinates.")
+        end
+    end
+    print("[DEBUG] No method available to get coordinates.")
+    return nil, nil, nil
+end
+
+-- Helper: send private message
+local function pmPlayer(username, msg)
+    local ok, err = pcall(function()
+        chatBox.sendMessageToPlayer(msg, username)
+    end)
+    if ok then
+        print(("[DEBUG] Sent PM to %s: %s"):format(username, msg))
+    else
+        print(("[DEBUG] Failed to send PM to %s: %s"):format(username, err or "unknown"))
+    end
+    return ok, err
+end
+
+-- Main loop
+while true do
+    local event, username, message, uuid, isHidden = os.pullEvent("chat")
+    print(("[DEBUG] Received chat event from '%s': %s"):format(tostring(username), tostring(message)))
+
+    if username == ALLOWED_USER and message == "getcoords" then
+        print("[DEBUG] Allowed user requested coordinates.")
+
+        local x, y, z = getCoords()
+        if x then
+            local reply = ("Coords for this computer: X=%d Y=%d Z=%d"):format(x, y, z)
+            pmPlayer(username, reply)
+        else
+            local failMsg = "Could not determine coordinates: no GPS and commands API unavailable."
+            pmPlayer(username, failMsg)
+        end
+
+        print("[DEBUG] Finished processing $getcoords command.\n")
+        sleep(0.8)
+    else
+        print("[DEBUG] Ignored message from user or invalid command.")
+    end
+end
